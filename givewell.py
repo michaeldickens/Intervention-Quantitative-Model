@@ -131,17 +131,19 @@ class FundraisingModel(Model):
         return min(self.num_employees(t), self.max_employees(t)) \
             * self.moved_per_employee
 
-# veg = DonationModel(1e7, 100, 5)
-# print "veg:", utility(veg)
+career_length = 20
+
+veg = DonationModel(1e7, 100, 5)
+print "veg:", veg.utility(t_f=career_length)
 
 miri = DonationModel(1e7, 10000, 20)
-print "MIRI:", miri.utility()
+print "MIRI:", miri.utility(t_f=career_length)
 
 # malaria = DonationModel(1e8, 10, 1)
 # print "malaria:", utility(malaria)
 
 malaria = DonationModel(1e8, 100, 1)
-print "malaria:", malaria.utility()
+print "malaria:", malaria.utility(t_f=career_length)
 
 counterfactual = 0.0
 gw = FundraisingModel(malaria, moved_per_employee = 5e6,
@@ -149,4 +151,4 @@ gw = FundraisingModel(malaria, moved_per_employee = 5e6,
                       counterfactual = counterfactual,
                       starting_capital = 2e8 # 1/10 of GV money
 )
-print "GiveWell (%s ctf):" % (counterfactual), gw.utility()
+print "GiveWell (%s ctf):" % (counterfactual), gw.utility(t_f=career_length)
