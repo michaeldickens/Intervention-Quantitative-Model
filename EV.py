@@ -20,30 +20,49 @@ sigma = 1.5
 
 # TODO: some (all?) of these PDFs should be CDFs. We can't get posterior probability that x = k but we can get probability that x < k.
 
-def pareto(x):
+def pareto_pdf(x):
     global m, a
     return stats.pareto.pdf(x, a, scale=m)
 
-def lognorm(mu, x):
+def lognorm_pdf(mu, x):
     global sigma
-    return stats.lognorm.pdf(x, sigma, scale=np.exp(mu))
+    return stats.lognorm.pdf(x, sigma, scale=mu)
 
-def prior_EV_calculation(mu):
-    return integrate.quad(lambda x: pareto(lognorm(mu, x)),
-                   0, np.inf)
+def pareto_cdf(x):
+    global m, a
+    return stats.pareto.cdf(x, a, scale=m)
 
-def posterior(val):
-    mu = mu_posterior(val)
-    prior = pareto(val)
-    conditional = lognorm(mu, val)
-    denom = prior_EV_calculation(mu)
-    return prior * conditional / denom
+def lognorm_cdf(x):
+    global sigma
+    return stats.lognorm.cdf(x, sigma)
 
-def mu_posterior(mu_p, val):
-    global m, a, sigma
-    prior = pareto(mu_p)
-    conditional = lognorm(mu_p, val)
-    denom = pareto(val)
-    return prior * conditional / denom
+"""
+Probability of getting `measurement` if true utility is `utility`.
+"""
+def p_measurement(measurement, utility):
+    return lognorm_pdf(1, measurement / float(utility))
+    # return lognorm_pdf(utility, measurement)
 
-print posterior(1)
+def get_const(measurement):
+    return integrate.quad(lambda u: posterior_density(u, measurement),
+                          0, np.inf)[0]
+
+def posterior_density(utility, measurement, const=1):
+    prior = pareto_pdf(utility)
+    update = integrate.quad(lambda x: p_measurement(measurement, x), 0, utility)[0]
+    return prior * update / const
+
+"""
+Probability that `Utility < utility` given `measurement`.
+"""
+def posterior(utility, measurement, const=1):
+    prior = pareto_cdf(utility)
+    update = integrate.quad(lambda x: p_measurement(measurement, x), 0, utility)[0]
+    return prior * update / const
+
+const = get_const(1000)
+const = 1
+print const
+print posterior(1000, 1000, const)
+print posterior(10000, 1000, const)
+print posterior(100000, 1000, const)
