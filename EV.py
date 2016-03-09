@@ -14,55 +14,32 @@ import numpy as np
 import scipy.integrate as integrate
 import scipy.stats as stats
 
-m = 1.0/3
-a = 100.0
+x0 = 100.0
+a = 1.0/3
 sigma = 1.5
 
 # TODO: some (all?) of these PDFs should be CDFs. We can't get posterior probability that x = k but we can get probability that x < k.
 
 def pareto_pdf(x):
-    global m, a
-    return stats.pareto.pdf(x, a, scale=m)
+    global x0, a
+    return stats.pareto.pdf(x, a, scale=x0)
 
-def lognorm_pdf(mu, x):
+def lognorm_pdf(x):
     global sigma
-    return stats.lognorm.pdf(x, sigma, scale=mu)
+    return stats.lognorm.pdf(x, sigma)
 
 def pareto_cdf(x):
-    global m, a
-    return stats.pareto.cdf(x, a, scale=m)
+    global x0, a
+    return stats.pareto.cdf(x, a, scale=x0)
 
 def lognorm_cdf(x):
     global sigma
     return stats.lognorm.cdf(x, sigma)
 
-"""
-Probability of getting `measurement` if true utility is `utility`.
-"""
-def p_measurement(measurement, utility):
-    return lognorm_pdf(1, measurement / float(utility))
-    # return lognorm_pdf(utility, measurement)
+def prior_measurement(m):
+    return integrate.quad(lambda u: lognorm_pdf(m / u) * pareto_pdf(u),
+                          0, np.inf)
 
-def get_const(measurement):
-    return integrate.quad(lambda u: posterior_density(u, measurement),
-                          0, np.inf)[0]
-
-def posterior_density(utility, measurement, const=1):
-    prior = pareto_pdf(utility)
-    update = integrate.quad(lambda x: p_measurement(measurement, x), 0, utility)[0]
-    return prior * update / const
-
-"""
-Probability that `Utility < utility` given `measurement`.
-"""
-def posterior(utility, measurement, const=1):
-    prior = pareto_cdf(utility)
-    update = integrate.quad(lambda x: p_measurement(measurement, x), 0, utility)[0]
-    return prior * update / const
-
-const = get_const(1000)
-const = 1
-print const
-print posterior(1000, 1000, const)
-print posterior(10000, 1000, const)
-print posterior(100000, 1000, const)
+print prior_measurement(100)
+print prior_measurement(1000)
+print prior_measurement(10000)
