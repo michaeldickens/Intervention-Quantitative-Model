@@ -10,22 +10,14 @@ Probability distribution of intervention cost-effectiveness.
 
 """ 
 
+from integrate import *
+from mpmath import mp
 import numpy as np
 import scipy.integrate as integrate
 import scipy.special as special
 import scipy.stats as stats
 
-robust_sigma = 0.5
-mid_sigma =    1
-weak_sigma =   2
-
-def lognorm_pdf(x):
-    global sigma
-    return stats.lognorm.pdf(x, sigma)
-
-def lognorm_cdf(x):
-    global sigma
-    return stats.lognorm.cdf(x, sigma)
+mp.dps = 50
 
 """
 Converts an 80% CI into a lognormal distribution with mean and
@@ -55,18 +47,27 @@ def to_normal(pairs):
     return [ (np.log10(m), s) for (m, s) in pairs ]
 
 """
-Takes means as means for a log-normal distribution. Takes the log
-of all the means and then returns the exponent of the combined mean.
+Converts a value from base-10 orders of magnitude to base-e.
+"""
+def base_e(s):
+    return s * np.log(10)
+
+"""
+Takes `mu` parameters as medians for a log-normal distribution. Takes
+the log of all the `mu`s and then returns the exponent of the combined
+`mu`.
 
 Takes standard deviations in terms of orders of magnitude
-(i.e. base 10). Internally converts them to base e.
+(i.e. base 10).
 """
 def product_normals(*pairs):
     pairs = to_normal(pairs)
+    print pairs
     
     mean = sum([ m / s**2 for (m, s) in pairs ]) / \
            sum([ 1.0 / s**2 for (m, s) in pairs ])
     sigma = 1 / np.sqrt(sum([ 1 / s**2 for (m, s) in pairs ]))
+    print mean, sigma
     return (10**mean, sigma)
 
 """
@@ -84,6 +85,21 @@ def log_posterior_EV(log_mu_p, s_p, log_m, s_m):
 
 def posterior_EV(mu_p, s_p, m, s_m):
     return np.exp(log_posterior_EV(np.log(mu_p), s_p, np.log(m), s_m))
+
+"""
+Far future posterior: Takes estimate in terms of QALYs per
+$1. Converts to QALYs per $1000 (i.e. number of times better than
+GiveDirectly) before estimating the posterior.
+
+"""
+def ff_posterior(estimate):
+    estimate = sum_normals(estimate, CI(1000))
+    print normal_to_CI(*estimate)
+    alpha = 1.5
+    return pareto_posterior(alpha, estimate)
+
+def net_EV(pos, neg):
+    return ff_posterior(pos) - ff_posterior(neg)
 
 """
 Prior is set of plausibly good charitable interventions. Assumes
@@ -110,19 +126,33 @@ def fundratios():
     print "GWWC", product_normals((3, 0.75), (600, 1.5))[0]
     print "GiveWell", product_normals((3, 0.75), (20, 0.8))[0]
 
+# TODO: Add distributions for negative effects and subtract, like for
+# GiveDirectly.
 def far_future_estimates():
-    prior = (1, 1)
-
-    # Value of far future
-    accessible_stars = CI(1e13, 1e14)
-    usable_wattage = CI(1e22, 1e25)
-    brains_per_watt = CI(1e2)
+    # far future outcome probabilities
+    p_stay_on_earth = CI(0.2)
+    p_biological = CI(0.7)
+    p_computronium = CI(0.1)
+    p_not_care_about_animals = CI(0.8)
+    p_WAS_exists = CI(0.4)
+    p_suffering_simulations = CI(0.3)
+    p_hedonium = CI(0.2)
+    p_paperclip = CI(0.75)
+    p_dolorium = CI(0.05)
+    
+    # computronium
+    computronium_accessible_stars = CI(1e13, 1e14)
+    biological_accessible_stars = CI(1e12, 1e14)
+    usable_wattage = CI(1e20, 1e25)
+    hedonium_brains_per_watt = CI(1e2)
+    paperclip_brains_per_watt = CI(1e-2, 1e1)
+    dolorium_brains_per_watt = hedonium_brains_per_watt
     years_of_future = CI(1e11, 1e12)
-    p_brains_are_happy = CI(0.1)
     humans_per_star = CI(1e10, 1e12)
 
     # AI safety
-    p_AI_related_extinction = CI(0.1, 0.5)
+    # p_AI_related_extinction = (0.1, 0.5) # mean/sigma, not CI
+    p_AI_related_extinction = CI(0.03, 0.3)
     size_of_FAI_community = CI(1.0/10000, 1.0/200)
     ai_safety_multiplicative_effect = CI(0.5, 3)
     ai_bad_scenarios_averted = CI(0.1, 0.7)
@@ -135,25 +165,20 @@ def far_future_estimates():
 
     # ...on factory farming (biological condition only)
     p_factory_farming_exists = CI(0.2)
-    p_people_care_about_factory_farming = CI(1)
-    factory_farming_in_future = CI(1e33, 1e37)
+    p_people_care_about_factory_farming = CI(0.5)
+    factory_farming_per_star = CI(1e10, 1e13)
     qalys_per_farm_year = CI(0.2, 4)
     
     # ...on WAS (biological condition only)
-    p_WAS_exists = CI(0.4)
     p_people_care_about_WAS = CI(0.1)
     qalys_per_WAS_year = CI(1)
-    wild_animals_per_star = CI(1e16, 1e20)
-
-    # ...on subroutines (hedonium condition)
-    p_hedonium_create_suffering = CI(0.01)
-    proportion_suffering_minds = CI(0.01, 0.1)
-    p_people_care_about_subroutines = CI(0.1)
-    qalys_per_subroutine_year = CI(1)
+    wild_animals_per_star = CI(1e14, 1e18) # adjusted by sentience
 
     # ...on subroutines (biological condition)
-    p_biological_create_suffering = CI(0.5)
-    biological_subroutines_per_wild_animal = CI(0.01, 1)
+    p_biological_create_suffering_subroutines = CI(0.1)
+    p_people_care_about_subroutines = CI(0.1)
+    qalys_per_subroutine_year = qalys_per_WAS_year
+    biological_subroutines_per_wild_animal = CI(0.001, 1)
 
     # AI-targeted values spreading
     p_build_FAI = CI(0.1)
@@ -161,34 +186,71 @@ def far_future_estimates():
     p_animals_exist_given_FAI = CI(0.1)
     ai_researcher_values_propagation = CI(1, 3)
     cost_to_convince_AI_researcher = CI(1e-6, 1e-3)
+
+    # GiveDirectly
+    dollars_to_end_poverty = CI(1e-12, 1e-11)
+    p_extinction = CI(0.3)
+    end_poverty_x_risk_reduction = CI(0.01, 0.2)
+    end_poverty_x_risk_increase = CI(0.008, 0.16)
     
     hedonium_value = sum_normals(
-        accessible_stars,
+        computronium_accessible_stars,
         usable_wattage,
-        brains_per_watt,
         years_of_future,
-        p_brains_are_happy,
+        hedonium_brains_per_watt,
     )
 
-    biological_value = sum_normals(
-        accessible_stars,
+    paperclip_neg_value = sum_normals(
+        computronium_accessible_stars,
+        usable_wattage,
+        years_of_future,
+        paperclip_brains_per_watt,
+    )
+
+    dolorium_neg_value = sum_normals(
+        computronium_accessible_stars,
+        usable_wattage,
+        years_of_future,
+        dolorium_brains_per_watt,
+    )
+
+    biological_human_value = sum_normals(
+        biological_accessible_stars,
         humans_per_star,
         years_of_future,
     )
 
+    factory_farming_in_future = sum_normals(
+        biological_accessible_stars,
+        factory_farming_per_star,
+        years_of_future,
+    )
+
     wild_animals_in_future = sum_normals(
-        accessible_stars,
+        biological_accessible_stars,
         wild_animals_per_star,
         years_of_future,
     )
 
+    wild_animals_neg_value = sum_normals(
+        wild_animals_in_future,
+        qalys_per_WAS_year,
+    )
+
     biological_subroutines_in_future = sum_normals(
-        accessible_stars,
+        biological_accessible_stars,
         wild_animals_per_star,
         biological_subroutines_per_wild_animal,
         years_of_future,
     )
+
+    biological_subroutines_neg_value = sum_normals(
+        biological_subroutines_in_future,
+        qalys_per_subroutine_year,
+    )
     
+    # Multiply by value of far future, cost per researcher to get
+    # final result
     ai_model1 = sum_normals(
         p_AI_related_extinction,
         size_of_FAI_community,
@@ -206,7 +268,13 @@ def far_future_estimates():
     ai_safety = sum_normals(
         ai_average,
         hedonium_value,
-        cost_per_AI_researcher
+        cost_per_AI_researcher,
+    )
+
+    ai_safety_1 = sum_normals(
+        ai_model1,
+        hedonium_value,
+        cost_per_AI_researcher,
     )
 
     factory_farming = sum_normals(
@@ -221,12 +289,12 @@ def far_future_estimates():
     was = sum_normals(
         p_WAS_exists,
         p_people_care_about_WAS,
-        qalys_per_WAS_year,
-        wild_animals_in_future,
+        wild_animals_neg_value,
         factory_farming_today,
         cost_per_animal,
     )
 
+    # TODO: redo this
     hedonium_suffering_subroutines = sum_normals(
         hedonium_value,
         p_hedonium_create_suffering,
@@ -237,11 +305,11 @@ def far_future_estimates():
         cost_per_animal,
     )
 
+    # TODO: redo this
     biological_suffering_subroutines = sum_normals(
         p_biological_create_suffering,
         p_people_care_about_subroutines,
-        biological_subroutines_in_future,
-        qalys_per_subroutine_year,
+        biological_subroutines_neg_value,
         factory_farming_today,
         cost_per_animal,
     )
@@ -264,14 +332,115 @@ def far_future_estimates():
         cost_to_convince_AI_researcher,
     )
 
-    # print "factory farming", normal_to_CI(*factory_farming)
-    # print "WAS", normal_to_CI(*was)
+    givedirectly = sum_normals(
+        hedonium_value,
+        dollars_to_end_poverty,
+        p_extinction,
+        end_poverty_x_risk_reduction,
+    )
 
-    print "AI safety", log10s(normal_to_CI(*product_normals(prior, ai_safety)))
-    print "factory farming", log10s(normal_to_CI(*product_normals(prior, factory_farming)))
-    print "WAS", log10s(normal_to_CI(*product_normals(prior, was)))
-    print "subroutines", log10s(normal_to_CI(*product_normals(prior, suffering_subroutines_overall)))
-    print "AI targeted", log10s(normal_to_CI(*product_normals(prior, ai_targeted)))
+    givedirectly_neg = sum_normals(
+        hedonium_value,
+        dollars_to_end_poverty,
+        p_extinction,
+        end_poverty_x_risk_increase,
+    )
+
+    # Expected values after accounting for probability of event
+    earth_EV = sum_normals(
+        p_stay_on_earth,
+        CI(0.4),
+        wild_animals_per_star,
+        qalys_per_WAS_year,
+    )
+    bio_humans_EV = sum_normals(p_biological, biological_human_value)
+    was_neg_EV = sum_normals(
+        p_biological,
+        p_not_care_about_animals,
+        p_WAS_exists,
+        wild_animals_neg_value,
+    )
+    bio_simulations_neg_EV = sum_normals(
+        p_biological,
+        p_not_care_about_animals,
+        p_suffering_simulations,
+        biological_subroutines_neg_value,
+    )
+    hedonium_EV = sum_normals(p_computronium, p_hedonium, hedonium_value)
+    paperclip_neg_EV = sum_normals(p_computronium, p_paperclip, paperclip_neg_value)
+    dolorium_neg_EV = sum_normals(p_computronium, p_dolorium, dolorium_neg_value)
+
+    for ev in ['earth_EV', 'bio_humans_EV', 'was_neg_EV', 'bio_simulations_neg_EV',
+               'hedonium_EV', 'paperclip_neg_EV', 'dolorium_neg_EV']:
+        lo, hi = normal_to_CI(*eval(ev))
+        print "| %s | %.1e | %.1e |" % (ev, lo, hi)
+
+    # print "AI safety", ff_posterior(ai_safety)
+    # print "factory farming", ff_posterior(factory_farming)
+    # print "WAS", ff_posterior(was)
+    # print "subroutines", ff_posterior(suffering_subroutines_overall)
+    # print "AI targeted", ff_posterior(ai_targeted)
+    # print "GiveDirectly", net_EV(givedirectly, givedirectly_neg)
     
 
-far_future_estimates()
+"""
+Helper function for computing combined Lomax/Lognormal distribution.
+"""
+def core_pdf(measurement, u, alpha=1.5):
+    m, s = measurement
+    return stats.lomax.pdf(u, alpha, scale = 1 / (2**(1.0/alpha) - 1)) * \
+        stats.lognorm.pdf(m, base_e(s), scale=u)
+
+def measurement_int(measurement, hi=np.inf):
+    return integral(lambda u: core_pdf(measurement, u),
+                    0.01, hi)[0]
+
+"""
+Computes posterior expected value.
+"""
+def pareto_posterior(alpha, measurement):
+    c = measurement_int(measurement)
+    return (integral(lambda u: u * core_pdf(measurement, u, alpha),
+                     0.01, np.inf)[0]) / c
+
+def lognorm_posterior(prior, measurement):
+    return product_normals(prior, measurement)[0]
+
+"""
+Computes P(U < hi | M = m).
+"""
+def posterior_cdf(measurement, hi):
+    return measurement_int(measurement, hi) / measurement_int(measurement)
+
+"""
+Prints a table of posteriors for a bunch of different parameters.
+"""
+def print_table(f, param):
+    ms = [1, 11, 2e4, 1e39]
+    ss = [0.25, 0.5, 1, 4, 6, 8]
+    print "| s | GiveDirectly | AMF | animals | x-risk |"
+    print "|---|--------------|-----|---------|--------|"
+    for s in ss:
+        print "| %.2f |" % s,
+        for m in ms:
+            p = f(param, (m, s))
+            if p > 10000:
+                print "%.2e |" % p,
+            else:
+                print "%.2f |" % p,
+        print ""
+
+def print_tables():
+    print "### Pareto prior\n"
+    for alpha in [1.1, 1.5, 2]:
+        print "&alpha; = %.1f:\n" % alpha
+        print_table(pareto_posterior, alpha)
+        print "<br />\n"
+        
+    print "### Log-normal prior\n"
+    for prior in [(1, 0.5), (1, 1), (1, 1.5)]:
+        print "&sigma; = %.1f:\n" % prior[1]
+        print_table(lognorm_posterior, prior)
+        print "<br />\n"
+
+print product_normals((1, 1), (22e3, 1))
