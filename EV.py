@@ -295,19 +295,8 @@ def far_future_estimates():
     )
 
     # TODO: redo this
-    hedonium_suffering_subroutines = sum_normals(
-        hedonium_value,
-        p_hedonium_create_suffering,
-        proportion_suffering_minds,
-        p_people_care_about_subroutines,
-        qalys_per_subroutine_year,
-        factory_farming_today,
-        cost_per_animal,
-    )
-
-    # TODO: redo this
     biological_suffering_subroutines = sum_normals(
-        p_biological_create_suffering,
+        p_biological_create_suffering_subroutines,
         p_people_care_about_subroutines,
         biological_subroutines_neg_value,
         factory_farming_today,
@@ -388,6 +377,7 @@ Helper function for computing combined Lomax/Lognormal distribution.
 """
 def core_pdf(measurement, u, alpha=1.5):
     m, s = measurement
+    print alpha / x_m / (1 + u / x_m)**(alpha + 1)
     return stats.lomax.pdf(u, alpha, scale = 1 / (2**(1.0/alpha) - 1)) * \
         stats.lognorm.pdf(m, base_e(s), scale=u)
 
@@ -443,4 +433,4 @@ def print_tables():
         print_table(lognorm_posterior, prior)
         print "<br />\n"
 
-print product_normals((1, 1), (22e3, 1))
+print core_pdf((11, 0.5), 30, 1.5)
