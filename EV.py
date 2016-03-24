@@ -301,10 +301,6 @@ def far_future_estimates():
         cost_per_animal,
     )
 
-    (hm, hs) = hedonium_suffering_subroutines
-    (bm, bs) = biological_suffering_subroutines
-    suffering_subroutines_overall = ((hm + bm) / 2, np.sqrt((hs**2 + bs**2)/2))
-
     ai_targeted = sum_normals(
         p_build_FAI,
 
@@ -357,17 +353,12 @@ def far_future_estimates():
     paperclip_neg_EV = sum_normals(p_computronium, p_paperclip, paperclip_neg_value)
     dolorium_neg_EV = sum_normals(p_computronium, p_dolorium, dolorium_neg_value)
 
-    for ev in ['earth_EV', 'bio_humans_EV', 'was_neg_EV', 'bio_simulations_neg_EV',
-               'hedonium_EV', 'paperclip_neg_EV', 'dolorium_neg_EV']:
-        lo, hi = normal_to_CI(*eval(ev))
-        print "| %s | %.1e | %.1e |" % (ev, lo, hi)
-
-    # print "AI safety", ff_posterior(ai_safety)
-    # print "factory farming", ff_posterior(factory_farming)
-    # print "WAS", ff_posterior(was)
-    # print "subroutines", ff_posterior(suffering_subroutines_overall)
-    # print "AI targeted", ff_posterior(ai_targeted)
-    # print "GiveDirectly", net_EV(givedirectly, givedirectly_neg)
+    print "AI safety", ff_posterior(ai_safety)
+    print "factory farming", ff_posterior(factory_farming)
+    print "WAS", ff_posterior(was)
+    print "subroutines", ff_posterior(biological_suffering_subroutines)
+    print "AI targeted", ff_posterior(ai_targeted)
+    print "GiveDirectly", net_EV(givedirectly, givedirectly_neg)
     
 
 """
@@ -403,8 +394,8 @@ def posterior_cdf(measurement, hi):
 Prints a table of posteriors for a bunch of different parameters.
 """
 def print_table(f, param):
-    ms = [1, 11, 2e4, 1e39]
-    ss = [0.25, 0.5, 1, 2]
+    ms = [1, 11, 2e4, 1e40]
+    ss = [0.1, 0.3, 0.8, 2]
     print "| s | GiveDirectly | AMF | animals | x-risk |"
     print "|---|--------------|-----|---------|--------|"
     for s in ss:
@@ -419,14 +410,15 @@ def print_table(f, param):
 
 def print_tables():
     print "### Pareto prior\n"
-    for alpha in [1.1, 1.5, 2]:
+    for alpha in [1.1, 1.5, 2.0]:
         print "&alpha; = %.1f:\n" % alpha
         print_table(pareto_posterior, alpha)
-        print "<br />\n"
+        print "\n<br />\n"
         
     print "### Log-normal prior\n"
     for prior in [(1, 0.5), (1, 1), (1, 1.5)]:
         print "&sigma; = %.1f:\n" % prior[1]
         print_table(lognorm_posterior, prior)
-        print "<br />\n"
+        print "\n<br />\n"
 
+far_future_estimates()
