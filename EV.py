@@ -62,12 +62,10 @@ Takes standard deviations in terms of orders of magnitude
 """
 def product_normals(*pairs):
     pairs = to_normal(pairs)
-    print pairs
     
     mean = sum([ m / s**2 for (m, s) in pairs ]) / \
            sum([ 1.0 / s**2 for (m, s) in pairs ])
     sigma = 1 / np.sqrt(sum([ 1 / s**2 for (m, s) in pairs ]))
-    print mean, sigma
     return (10**mean, sigma)
 
 """
@@ -375,21 +373,20 @@ def far_future_estimates():
 """
 Helper function for computing combined Lomax/Lognormal distribution.
 """
-def core_pdf(measurement, u, alpha=1.5):
+def core_pdf(measurement, u, alpha):
     m, s = measurement
-    print alpha / x_m / (1 + u / x_m)**(alpha + 1)
     return stats.lomax.pdf(u, alpha, scale = 1 / (2**(1.0/alpha) - 1)) * \
         stats.lognorm.pdf(m, base_e(s), scale=u)
 
-def measurement_int(measurement, hi=np.inf):
-    return integral(lambda u: core_pdf(measurement, u),
+def measurement_int(measurement, alpha, hi=np.inf):
+    return integral(lambda u: core_pdf(measurement, u, alpha),
                     0.01, hi)[0]
 
 """
 Computes posterior expected value.
 """
 def pareto_posterior(alpha, measurement):
-    c = measurement_int(measurement)
+    c = measurement_int(measurement, alpha)
     return (integral(lambda u: u * core_pdf(measurement, u, alpha),
                      0.01, np.inf)[0]) / c
 
@@ -407,7 +404,7 @@ Prints a table of posteriors for a bunch of different parameters.
 """
 def print_table(f, param):
     ms = [1, 11, 2e4, 1e39]
-    ss = [0.25, 0.5, 1, 4, 6, 8]
+    ss = [0.25, 0.5, 1, 2]
     print "| s | GiveDirectly | AMF | animals | x-risk |"
     print "|---|--------------|-----|---------|--------|"
     for s in ss:
@@ -433,4 +430,3 @@ def print_tables():
         print_table(lognorm_posterior, prior)
         print "<br />\n"
 
-print core_pdf((11, 0.5), 30, 1.5)
