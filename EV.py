@@ -11,13 +11,10 @@ Probability distribution of intervention cost-effectiveness.
 """ 
 
 from integrate import *
-from mpmath import mp
 import numpy as np
 import scipy.integrate as integrate
 import scipy.special as special
 import scipy.stats as stats
-
-mp.dps = 50
 
 """
 Converts an 80% CI into a lognormal distribution with mean and
@@ -421,4 +418,13 @@ def print_tables():
         print_table(lognorm_posterior, prior)
         print "\n<br />\n"
 
-far_future_estimates()
+s = np.log(10) * 1
+def foo(u):
+    global s
+    return stats.lognorm.pdf(u, s) * stats.lognorm.pdf(1, s, scale=u)
+
+c = integral(foo, 0.01, np.inf)[0]
+print "calculated EV:", np.exp(0 + s**2 / 2)
+print "calculated joint EV:", np.exp(0 + s**2)
+print "EV:", integral(lambda u: u * stats.lognorm.pdf(u, s), 0.01, np.inf)[0]
+print integral(lambda u: u * foo(u) / c, 0.01, np.inf)[0]
