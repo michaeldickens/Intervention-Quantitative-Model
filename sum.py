@@ -15,9 +15,9 @@ import scipy.stats as stats
 # exp_offset = 50
 # step = 1.25
 
-num_buckets = 100
-exp_offset = 20
-step = 1.5
+num_buckets = 200
+exp_offset = 30
+step = 1.35
 
 def dist_to_buckets(cdf):
     """
@@ -29,6 +29,9 @@ def dist_to_buckets(cdf):
         buckets.append(cdf(step**(e+1)) - cdf(step**e))
     return buckets
  
+# TODO: If a[i] is much larger than b[j] or vice versa, the sum is
+# approximately equal to the max of the two. You can exploit this to
+# improve runtime but it's a bit tricky.
 def sum_buckets(a, b):
     res = [ 0 for _ in range(num_buckets) ]
     for i in range(num_buckets):
@@ -45,5 +48,4 @@ def sum_buckets(a, b):
 a = dist_to_buckets(lambda x: stats.lognorm.cdf(x, 1))
 b = dist_to_buckets(lambda x: stats.lognorm.cdf(x, 2))
 s = sum_buckets(a, b)
-print ", ".join("%.1e" % i for i in s)
 print sum(s)
