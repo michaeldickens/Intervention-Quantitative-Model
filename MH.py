@@ -13,16 +13,21 @@ Implementation of the Metropolis-Hastings algorithm for approximating Bayesian p
 import numpy as np
 
 def get_candidate(q, given=None):
-    pass
+    if given == None:
+        # draw from initial guess distribution intended to approximate
+        # final distribution
+        pass
+    else:
+        pass
     
 def metropolis_hastings(q, num_iters):
     """
     `q`: proposal distribution
+    `pi`: full joint density
     """
     x = get_candidate(q)
     for _ in range(num_iters):
         x_cand = get_candidate(q, x)
-        p_accept = min(1, (q(x, x_cand) * pi(x_cand)) / \
-                       (q(x_cand, x) * pi(x)))
+        p_accept = (q(x, x_cand) * pi(x_cand)) / (q(x_cand, x) * pi(x))
         if np.random.rand() < p_accept:
             x = x_cand
