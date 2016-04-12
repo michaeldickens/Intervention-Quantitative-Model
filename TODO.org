@@ -5,10 +5,10 @@ It may be better to use as a two-sided log-normal distribution (i.e. a regular l
 ** TODO Break down effects on factory-farmed animals into multiple categories for different types of animals
 
 Might be overcomplicated and not worth it
+** TODO Write function to sum multiple distributions where you specify at runtime which are positive or negative
 ** More comprehensively list plausible far-future outcomes
 *** TODO Competitive ems that outcompete humans
 see http://www.nickbostrom.com/fut/evolution.html
 *** TODO Somehow account for unpredictable outcomes
-* Small Changes
 * Bugs
 No known bugs right now. Yay!
