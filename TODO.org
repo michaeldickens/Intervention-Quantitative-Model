@@ -10,5 +10,7 @@ Might be overcomplicated and not worth it
 *** TODO Competitive ems that outcompete humans
 see http://www.nickbostrom.com/fut/evolution.html
 *** TODO Somehow account for unpredictable outcomes
+* Refactor
+** TODO For posterior, represent estimate as buckets instead of converting to lognormal distribution, which loses accuracy
 * Bugs
 No known bugs right now. Yay!
