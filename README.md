@@ -1,5 +1,5 @@
 # Intervention Quantitative Model
 
-InterventionEV.xlsm contains the quantitative model. It uses Excel macros so I believe you can only properly use it if you have Excel.
+InterventionEV.xlsm contains the quantitative model. For how to use the spreadsheet, see: TODO: link
 
-The other files are old, you can igore them.
+The other files are old, you can ignore them.
