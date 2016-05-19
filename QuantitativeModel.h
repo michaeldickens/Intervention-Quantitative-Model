@@ -28,8 +28,8 @@ public:
     virtual double& operator[](int index);
     virtual double operator[](int index) const;
     virtual double get(int index) const;
-    Distribution *operator+(const Distribution *other);
-    Distribution *operator*(const Distribution *other);
+    Distribution *operator+(const Distribution *other) const;
+    Distribution *operator*(const Distribution *other) const;
     double mean();
     double variance(double mean1);
     double integrand(Distribution *measurement, int index, bool ev);
