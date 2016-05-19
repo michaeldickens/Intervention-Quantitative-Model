@@ -64,6 +64,19 @@ double get_delta(int index) {
     return pow(STEP, index - EXP_OFFSET + 1) - pow(STEP, index - EXP_OFFSET);
 }
 
+Distribution *dist_sum(Distribution *dists[], int length) {
+    Distribution *curr = dists[0];
+    Distribution *next = NULL;
+    for (int i = 1; i < length - 1; i++) {
+        next = *curr + dists[i];
+        if (i > 1) {
+            delete curr;
+        }
+        curr = next;
+    }
+    return curr;
+}
+
 Distribution::Distribution() : buckets(NUM_BUCKETS, 0) {
     this->type = "buckets";
 }
@@ -219,12 +232,18 @@ LognormDist::LognormDist(double p_m, double p_s) {
 
 int main(int argc, char *argv[])
 {
-    LognormDist veg_direct(26.657, sqrt(0.5348));
-    LognormDist veg_indirect(6.529, sqrt(0.8384));
-    LognormDist *sum = (LognormDist *) (veg_direct + &veg_indirect);
-    double mean1 = sum->mean();
-    cout << mean1 << " " << sum->variance(mean1) << endl;
-    delete sum;
+    LognormDist one(5.4e33, 2.73);
+    LognormDist two(5.4e33, 2.73);
+    LognormDist three(5.4e33, 2.73);
+    LognormDist four(5.4e33, 2.73);
+    LognormDist five(5.4e33, 2.73);
+    LognormDist six(5.4e33, 2.73);
+    LognormDist *dists[] = {
+        &one, &two, &three, &four, &five, &six
+    };
+
+    LognormDist *sum = (LognormDist *) dist_sum((Distribution **) dists, 6);
+    cout << sum->mean() << ", " << sum->variance(sum->mean()) << endl;
     
     return 0;
 }
