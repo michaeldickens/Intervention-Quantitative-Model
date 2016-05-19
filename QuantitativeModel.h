@@ -30,11 +30,11 @@ public:
     virtual double get(int index) const;
     Distribution *operator+(const Distribution *other) const;
     Distribution *operator*(const Distribution *other) const;
-    double mean();
-    double variance(double mean1);
-    double integrand(Distribution *measurement, int index, bool ev);
-    double integral(Distribution *measurement, bool ev);
-    double posterior(Distribution *measurement);
+    double mean() const;
+    double variance(double mean1) const;
+    double integrand(const Distribution *measurement, int index, bool ev) const;
+    double integral(const Distribution *measurement, bool ev) const;
+    double posterior(const Distribution *measurement) const;
 };
 
 class LognormDist : public Distribution {

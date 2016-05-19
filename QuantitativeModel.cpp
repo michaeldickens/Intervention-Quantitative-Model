@@ -18,6 +18,7 @@ using namespace std;
 #define NUM_BUCKETS 1000
 #define STEP 1.25
 #define EXP_OFFSET 100
+#define NORMAL_90TH_PERCENTILE 1.2815515655
 
 function<double(double)> lomax_pdf(double x_m, double alpha)
 {
@@ -191,7 +192,7 @@ Distribution *Distribution::operator*(const Distribution *other) const
     return res;
 }
 
-double Distribution::mean()
+double Distribution::mean() const
 {
     double mu = 0;
     for (int i = 0; i < NUM_BUCKETS; i++) {
@@ -200,7 +201,7 @@ double Distribution::mean()
     return mu;
 }
 
-double Distribution::variance(double mean1)
+double Distribution::variance(double mean1) const
 {
     double sigma2 = 0;
     for (int i = 0; i < NUM_BUCKETS; i++) {
@@ -209,7 +210,7 @@ double Distribution::variance(double mean1)
     return sigma2 - pow(mean1, 2);
 }
 
-double Distribution::integrand(Distribution *measurement, int index, bool ev)
+double Distribution::integrand(const Distribution *measurement, int index, bool ev) const
 {
     double u = bucket_min_prob(index);
     double prior = this->get(index);
@@ -234,7 +235,7 @@ double Distribution::integrand(Distribution *measurement, int index, bool ev)
     return res;
 }
 
-double Distribution::integral(Distribution *measurement, bool ev)
+double Distribution::integral(const Distribution *measurement, bool ev) const
 {
     double total = 0;
     double x_lo = pow(STEP, -EXP_OFFSET);
@@ -255,7 +256,7 @@ double Distribution::integral(Distribution *measurement, bool ev)
     return total;
 }
 
-double Distribution::posterior(Distribution *measurement)
+double Distribution::posterior(const Distribution *measurement) const
 {
     double c = this->integral(measurement, false);
     return this->integral(measurement, true) / c;
@@ -270,6 +271,16 @@ LognormDist::LognormDist(double p_m, double p_s)
     this->p_m = p_m;
     this->p_s = p_s;
     this->pdf = lognorm_pdf(p_m, p_s);
+}
+
+/*
+ * Converts an 80% credence interval into a log-normal distribution.
+ */
+LognormDist CI(double lo, double hi)
+{
+    double p_m = sqrt(lo * hi);
+    double p_s = sqrt(log(hi / lo) / log(10) / 2 / NORMAL_90TH_PERCENTILE);
+    return LognormDist(p_m, p_s);
 }
 
 void test_sum_dists()
@@ -296,18 +307,26 @@ void test_sum_dists()
     delete sum;
 }
 
-void test_sum()
+double thl_posterior_direct(Distribution prior)
 {
-    LognormDist *sum = (LognormDist *) (veg_direct + &veg_indirect);
-    // should be 169.8, 498600
-    cout << sum->mean() << ", " << sum->variance(sum->mean()) << endl;
-
-    delete sum;
+    LognormDist years_factory_farming_prevented_per_1000_dollars = CI(700, 13000);
+    LognormDist chicken_wellbeing = CI(6, 6);
+    LognormDist chicken_sentience_adjustment = CI(0.3, 0.3);
+    LognormDist *arr[] = {
+        &years_factory_farming_prevented_per_1000_dollars,
+        &chicken_wellbeing,
+        &chicken_sentience_adjustment,
+    };
+    LognormDist *utility_estimate = (LognormDist *) sum_dists((const Distribution **) arr, 3);
+    double post = prior.posterior(utility_estimate);
+    delete utility_estimate;
+    return post;
 }
 
 int main(int argc, char *argv[])
 {
-    test_sum();
-    test_sum_dists();
+    // TODO: put user input vars into hash tables and read from file
+    
+    printf("%f\n", thl_posterior_direct(LognormDist(1, 0.75)));
     return 0;
 }
