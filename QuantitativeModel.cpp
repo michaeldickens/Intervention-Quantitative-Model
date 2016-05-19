@@ -11,19 +11,34 @@
  * 
  */
 
-#include <iostream>
-#include <vector>
+#include "QuantitativeModel.h"
 
 using namespace std;
 
 #define NUM_BUCKETS 1000
 #define STEP 1.25
-#define EXP_OFFSET 200
+#define EXP_OFFSET 100
+
+function<double(double)> lomax_pdf(double x_m, double alpha) {
+    return [x_m, alpha](double x){
+        return alpha / x_m / pow(1 + x / x_m, alpha + 1);
+    };
+}
+
+function<double(double)> lognorm_pdf(double p_m, double p_s) {
+    double mu = log(p_m);
+    double s = log(10) * p_s;
+    return [mu, s](double x){
+        return 1 / (x * s * sqrt(2 * M_PI)) *
+            exp(-0.5 * pow((log(x) - mu) / s, 2));
+    };
+}
 
 /*
  * Returns the bucket containing the given x value.
  */
-int bucket_index(int x) {
+int bucket_index(double x) {
+    // return (int) (log(x) / log(STEP) - 0.5) + EXP_OFFSET; // I believe this is more mathematically accurate but Excel does in the other way
     return (int) (log(x) / log(STEP)) + EXP_OFFSET;
 }
 
@@ -36,66 +51,180 @@ double bucket_prob(int index) {
 }
 
 /*
+ * Gives probability density at the bottom of the bucket.
+ */
+double bucket_min_prob(int index) {
+    return pow(STEP, index - EXP_OFFSET);
+}
+
+/*
  * Gets the difference in x-values from the beginning to the end of a bucket.
  */
 double get_delta(int index) {
-    return pow(STEP, index - EXP_OFFSET + 1) - pow(STEP, index - EXP_OFFSET)
+    return pow(STEP, index - EXP_OFFSET + 1) - pow(STEP, index - EXP_OFFSET);
 }
 
-class Distribution {
-    vector<double> buckets(NUM_BUCKETS, 0);
+Distribution::Distribution() : buckets(NUM_BUCKETS, 0) {
+    this->type = "buckets";
+}
 
-public:
-    Distribution() {}
-
-    /*
-     * Constructs buckets given a probability density function (PDF).
-     */
-    Distribution(double (*pdf)(double)) {
-        for (int i = 0; i < NUM_BUCKETS; i++) {
-            this[i] = pdf(bucket_prob(i));
-        }
+/*
+ * Constructs buckets given a probability density function (PDF).
+ */
+Distribution::Distribution(function<double(double)> pdf) : Distribution() {
+    for (int i = 0; i < NUM_BUCKETS; i++) {
+        buckets[i] = pdf(bucket_prob(i));
     }
+}
 
-    double& operator[](size_t index) {
-        return this.buckets[index];
+/*
+ * Should only be used for distributions that use buckets.
+ */
+double& Distribution::operator[](int index) {
+    return buckets[index];
+}
+
+double Distribution::operator[](int index) const {
+    return buckets[index];
+}
+
+double Distribution::get(int index) const {
+    if (type == "buckets") {
+        return buckets[index];
+    } else {
+        return pdf(bucket_prob(index));
     }
+}
 
-    /*
-     * Calculates the sum of two probability distributions.
-     */
-    Distribution operator+(const Distribution *other) {
-        Distribution res;
-        for (int i = 0; i < NUM_BUCKETS; i++) {
-            for (int j = 0; j < NUM_BUCKETS; j++) {
-                index = bucket_index(bucket_prob(i) + bucket_prob(j));
-                mass = this[i] * get_delta(i) * other[j] * get_delta[j];
-                if (index >= num_buckets) {
-                    index = num_buckets - 1;
-                }
-                res[index] += mass / get_delta(index);
+/*
+ * Calculates the sum of two probability distributions.
+ */
+Distribution *Distribution::operator+(const Distribution *other) {
+    Distribution *res = new Distribution();
+    for (int i = 0; i < NUM_BUCKETS; i++) {
+        for (int j = 0; j < NUM_BUCKETS; j++) {
+            int index = bucket_index(bucket_prob(i) + bucket_prob(j));
+            double mass = get(i) * get_delta(i) * other->get(j) * get_delta(j);
+            if (index >= NUM_BUCKETS) {
+                index = NUM_BUCKETS - 1;
             }
+            res->buckets[index] += mass / get_delta(index);
         }
-        return res;
+    }
+    return res;
+}
+
+/*
+ * Calculates the product of two probability distributions.
+ */
+Distribution *Distribution::operator*(const Distribution *other) {
+    if (this->type == "lognorm" && other->type == "lognorm") {
+        LognormDist *this2 = (LognormDist *) this;
+        LognormDist *other2 = (LognormDist *) other;
+        double new_p_m = this2->p_m * other2->p_m;
+        double new_p_s = sqrt(pow(this2->p_s, 2) + pow(other2->p_s, 2));
+        return new LognormDist(new_p_m, new_p_s);
+    }
+    
+    Distribution *res = new Distribution();
+    for (int i = 0; i < NUM_BUCKETS; i++) {
+        for (int j = 0; j < NUM_BUCKETS; j++) {
+            int index = bucket_index(bucket_prob(i) * bucket_prob(j));
+            double mass = get(i) * get_delta(i) * other->get(j) * get_delta(j);
+            if (index >= NUM_BUCKETS) {
+                index = NUM_BUCKETS - 1;
+            } else if (index < 0) {
+                index = 0;
+            }
+            res->buckets[index] += mass / get_delta(index);
+        }
+    }
+    return res;
+}
+
+double Distribution::mean() {
+    double mu = 0;
+    for (int i = 0; i < NUM_BUCKETS; i++) {
+        mu += bucket_prob(i) * get(i) * get_delta(i);
+    }
+    return mu;
+}
+
+double Distribution::variance(double mean1) {
+    double sigma2 = 0;
+    for (int i = 0; i < NUM_BUCKETS; i++) {
+        sigma2 += pow(bucket_prob(i), 2) * get(i) * get_delta(i);
+    }
+    return sigma2 - pow(mean1, 2);
+}
+
+double Distribution::integrand(Distribution *measurement, int index, bool ev) {
+    double u = bucket_min_prob(index);
+    double prior = this->get(index);
+    double update = 0;
+    if (measurement->type == "buckets") {
+        /* approximate `measurement` with log-normal dist */
+        // TODO: just do this directly numerically
+        double mean1 = measurement->mean();
+        double var = measurement->variance(mean1);
+        double mu = log(mean1 / sqrt(1 + var / pow(mean1, 2)));
+        double sigma = sqrt(log(1 + var / pow(mean1, 2)));
+        update = lognorm_pdf(u, sigma / log(10))(exp(mu));
+    } else {
+        LognormDist *meas = (LognormDist *) measurement;
+        update = lognorm_pdf(u, meas->p_s)(meas->p_m);
     }
 
-    /*
-     * Calculates the product of two probability distributions.
-     */
-    Distribution operator*(const Distribution *other) {
-        Distribution res;
-        for (int i = 0; i < NUM_BUCKETS; i++) {
-            for (int j = 0; j < NUM_BUCKETS; j++) {
-                int index = bucket_index(bucket_prob(i), bucket_prob(j));
-                int mass = this[i] * get_delta(i) * other[j] * get_delta(j);
-                if (index >= NUM_BUCKETS) {
-                    index = num_buckets - 1;
-                } else if (index < 0) {
-                    index = 0;
-                }
-                res[index] += mass / get_delta(index);
-            }
-        }
-        return res;
+    double res = prior * update;
+    if (ev) {
+        res *= u;
     }
+    return res;
+}
+
+double Distribution::integral(Distribution *measurement, bool ev) {
+    double total = 0;
+    double x_lo = pow(STEP, -EXP_OFFSET);
+    double x_hi = x_lo * STEP;
+    double y_lo = integrand(measurement, 0, ev);
+    double y_hi;
+    double avg, delta;
+    for (int i = 1; i <= NUM_BUCKETS; i++) {
+        y_hi = integrand(measurement, i, ev);
+        avg = (y_lo + y_hi) / 2;
+        delta = x_hi - x_lo;
+        total += avg * delta;
+
+        x_lo = x_hi;
+        x_hi = x_hi * STEP;
+        y_lo = y_hi;
+    }
+    return total;
+}
+
+double Distribution::posterior(Distribution *measurement) {
+    double c = this->integral(measurement, false);
+    return this->integral(measurement, true) / c;
+}
+
+/*
+ * Takes p_m as exp(mu) and p_s and base-10 standard deviation.
+ */
+LognormDist::LognormDist(double p_m, double p_s) {
+    type = "lognorm";
+    this->p_m = p_m;
+    this->p_s = p_s;
+    this->pdf = lognorm_pdf(p_m, p_s);
+}
+
+int main(int argc, char *argv[])
+{
+    LognormDist veg_direct(26.657, sqrt(0.5348));
+    LognormDist veg_indirect(6.529, sqrt(0.8384));
+    LognormDist *sum = (LognormDist *) (veg_direct + &veg_indirect);
+    double mean1 = sum->mean();
+    cout << mean1 << " " << sum->variance(mean1) << endl;
+    delete sum;
+    
+    return 0;
 }
