@@ -11,10 +11,12 @@
 #define _USE_MATH_DEFINES // for M_PI
 
 #include <cmath>
+#include <fstream>
 #include <functional>
 #include <iostream>
 #include <map>
 #include <memory>
+#include <string>
 #include <vector>
 
 #define NUM_BUCKETS 1000
