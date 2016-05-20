@@ -17,38 +17,35 @@
 #include <memory>
 #include <vector>
 
+#define NUM_BUCKETS 1000
+#define STEP 1.25
+#define EXP_OFFSET 100
+#define NORMAL_90TH_PERCENTILE 1.2815515655
+
 class Distribution {
 public:
+    enum class Type { buckets, lognorm };
+
     std::function<double(double)> pdf;
     std::vector<double> buckets;
 
-    /* May be one of "buckets", "lognorm" */
-    std::string type;
+    /* using enum instead of subclasses because C++ is stupid */
+    Type type;
 
-    Distribution();
-    Distribution(std::function<double(double)> pdf);
-    virtual double& operator[](int index);
-    virtual double operator[](int index) const;
-    virtual double get(int index) const;
-    std::unique_ptr<Distribution> operator+(const std::unique_ptr<Distribution> other) const;
-    std::unique_ptr<Distribution> operator*(const std::unique_ptr<Distribution> other) const;
-    double mean() const;
-    double variance(double mean1) const;
-    double integrand(const Distribution *measurement, int index, bool ev) const;
-    double integral(const  Distribution *measurement, bool ev) const;
-    double posterior(const Distribution *measurement) const;
-};
-
-class LognormDist : public Distribution {
-public:
-    
-    /*
-     * p_m: exponent of mean of underlying Normal dist
-     * p_s: base-10 standard deviation of underlying Normal dist
-     */
+    /* params for log-normal */
     double p_m;
     double p_s;
 
-    LognormDist(double p_m, double p_s);
+    Distribution();
+    Distribution(double p_m, double p_s);
+    Distribution(std::function<double(double)> pdf);
+    virtual double operator[](int index) const;
+    virtual double get(int index) const;
+    Distribution operator+(const Distribution& other) const;
+    Distribution operator*(const Distribution& other) const;
+    double mean() const;
+    double variance(double mean1) const;
+    double integrand(const Distribution& measurement, int index, bool ev) const;
+    double integral(const  Distribution& measurement, bool ev) const;
+    double posterior(const Distribution& measurement) const;
 };
-
