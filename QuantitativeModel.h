@@ -13,6 +13,8 @@
 #include <cmath>
 #include <functional>
 #include <iostream>
+#include <map>
+#include <memory>
 #include <vector>
 
 class Distribution {
@@ -28,12 +30,12 @@ public:
     virtual double& operator[](int index);
     virtual double operator[](int index) const;
     virtual double get(int index) const;
-    Distribution *operator+(const Distribution *other) const;
-    Distribution *operator*(const Distribution *other) const;
+    std::unique_ptr<Distribution> operator+(const std::unique_ptr<Distribution> other) const;
+    std::unique_ptr<Distribution> operator*(const std::unique_ptr<Distribution> other) const;
     double mean() const;
     double variance(double mean1) const;
     double integrand(const Distribution *measurement, int index, bool ev) const;
-    double integral(const Distribution *measurement, bool ev) const;
+    double integral(const  Distribution *measurement, bool ev) const;
     double posterior(const Distribution *measurement) const;
 };
 
@@ -49,3 +51,4 @@ public:
 
     LognormDist(double p_m, double p_s);
 };
+
